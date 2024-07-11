@@ -1,25 +1,71 @@
+import { getThumbnailUrl } from '@app/storage'
+import { attachMedia } from "@app/ui"
 import { droidsTable } from './MainPage'
-import { mapRatingIcon, mapRatingStyle, howRatingChanged } from './utils'
+import { getCreationDate } from './utils'
+import {  typeInputField, typeMapInputField  } from './models'
+
+const inputField: typeInputField[]  = ['name', "model", "class", "affiliation"]
+
+const mapInputField: typeMapInputField = {
+  name: 'Имя дроида',
+  class: 'Класс',
+  model: 'модель',
+  affiliation: 'Принадлежность'
+}
+
+app.apiCall('onImgUpload', async (ctx, req) => {
+  return ctx.router.navigate('?hash=' + req.body.file.hash)
+})
+
+app.apiCall('addNewDroid', async (ctx, req) => {
+  const newDroid = {creationDate: getCreationDate(), ...req.body}
+  await droidsTable.create(ctx, newDroid)
+  return ctx.account.navigate('/MainPage')
+})
 
 app.screen('/', async (ctx, req) => {
   const droids = (await droidsTable.findAll(ctx)).sort((a, b) => b.currRating - a.currRating)
+
+  const handleAddImg = attachMedia({
+    mediaType: "photo",
+    submitUrl: ctx.router.url('onImgUpload'),
+    menuTitle: 'Выберите изображение',
+  })
 
   return (
     <screen title="Рейтинг дроидов" style={{ backgroundColor: '#f5f5f5' }}>
       <box style={{ minHeight: '100%', flexDirection: 'column', justifyContent: 'space-between' }}>
 
         <box style={{ position: 'relative', paddingVertical: 25}}>
-          <text
-            style={{
-              color: '#000029',
-              fontSize: 'lg',
-              fontWeight: '700',
-              textAlign: 'center',
-              textTransform: 'uppercase',
-            }}
-          >
-            Топ дроидов
-          </text>
+            <text
+              style={{
+                color: '#000029',
+                fontSize: 'lg',
+                fontWeight: '700',
+                textAlign: 'center',
+                textTransform: 'uppercase',
+              }}
+            >
+              Новый дроид
+            </text>
+            <button
+              style={{
+                padding:0,
+                height: 25,
+                width: 25,
+                position: 'absolute',
+                right: 10,
+                top: 15,
+                backgroundColor: '#000'
+              }}
+              onClick={ctx.account.navigate('/MainPage')}
+            >
+              <icon
+                size={15}
+                name={ ['fas', 'house-user'] }
+                style={{ color: '#FFE81F' }}
+              />
+            </button>
         </box>
 
         <box
@@ -31,66 +77,51 @@ app.screen('/', async (ctx, req) => {
               borderRadius: 10,
               marginVertical: 0,
               marginHorizontal: 10,
+              paddingBottom: 20,
           }}
         >
-          <box
-            style={{
-              paddingHorizontal: 5,
-              paddingVertical: 10,
-              borderBottom: [ 1, '#b3b3b3' ],
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
-            <text style={{ flexBasis: '10%',  fontWeight: '600', paddingLeft: 10 }}>#</text>
-            <text style={{ flexBasis: '35%', fontWeight: '600' }}>Имя дроида</text>
-            <text style={{ flexBasis: '25%', fontWeight: '600' }}>Рейтинг</text>
-            <text style={{ flexBasis: '30%', fontWeight: '600', paddingRight: 10 }}>Добавлен</text>
+          <box>
+            {
+              req.query?.hash && 
+              <img 
+                resizeMode='cover'
+                src={getThumbnailUrl(req.query.hash)} 
+                style={{ 
+                  height: 350, 
+                  width: '100%',
+                }}
+              />
+            }
+            {
+              !req.query.hash && 
+              <box 
+                style={{ 
+                  height: 350, 
+                  width: '100%', 
+                  backgroundColor: '#b3b3b3',
+                  marginBottom: 10,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }} 
+                onClick={handleAddImg}>
+                  <icon
+                    size='xl'
+                    name={ ['fas', 'plus'] }
+                    style={{ color: '#fff'}}
+
+                  />
+              </box>
+            }
           </box>
           {
-            droids.map((droid, index) => {
-              const changeRating = howRatingChanged(droid.currRating, droid.prevRating)
+            inputField.map((field) => {
               return (
-                <box
-                  style={{
-                    elevation: 5,
-                    shadowColor: 'rgba(34, 60, 80, 0.3)',
-                    backgroundColor: 'white',
-                    paddingHorizontal: 5,
-                    paddingVertical: 10,
-                    borderBottom: index === (droids.length -1) ? [ 0, '#b3b3b3' ] : [ 1, '#b3b3b3' ],
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <text style={{ flexBasis: '10%', paddingLeft: 10 }}>{index+1}</text>
-                  <text style={{ flexBasis: '35%' }}>{droid.name}</text>
-                  <box style={{
-                      flexDirection: 'row',
-                      justifyContent: 'flex-start',
-                      alignItems: 'center',
-                      flexBasis: '25%',
-                    }}
-                  >
-                    <text
-                      style={{
-                        color: mapRatingStyle[changeRating],
-                        textAlignVertical: 'center',
-                        marginRight: 5,
-                      }}
-                    >
-                      {droid.currRating}
-                    </text>
-                    <icon
-                      size={15}
-                      name={['fas', mapRatingIcon[changeRating]]}
-                      style={{
-                        color: mapRatingStyle[changeRating]
-                      }}
+                <box style={{ marginTop: 10, marginHorizontal: 10 }}>
+                  <text>{`${mapInputField[field]}:`}</text>
+                    <text-input
+                      name={`${field}`}
+                      formId="newDroidForm"
                     />
-                  </box>
-                  <text style={{ flexBasis: '30%', paddingRight: 10 }}>{droid.creationDate}</text>
                 </box>
               )
             })
@@ -107,9 +138,14 @@ app.screen('/', async (ctx, req) => {
               textTransform: "uppercase",
               fontSize: 'sm',
             }}
-            onClick={ctx.account.navigate('/MainPage')}
+            onClick={{
+              type: 'submitForm',
+              formId: 'newDroidForm',
+              url: ctx.router.url('/addNewDroid'),
+              params: {image: req.query?.hash},
+            }}
           >
-            Выбрать своего дроида
+            Добавить в рейтинг
           </button>
         </box>
 
